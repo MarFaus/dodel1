@@ -11,54 +11,52 @@
                     <div class="stage"><div class="stage-bar"></div><span>Сцена</span></div>
                     
                     <div style="display: flex; flex-direction: column; gap: 8px; align-items: center;" id="seat-map">
-                        @for($r = 1; $r <= $hall->total_rows; $r++)
-                            @php
-                                $rowSeats = $seatsByRow->get($r) ?? collect();
-                            @endphp
+                        <?php for ($r = 1; $r <= $hall->total_rows; $r++): ?>
+                            <?php $rowSeats = $seatsByRow->get($r) ?? collect(); ?>
                             <div style="display: flex; gap: 6px; align-items: center;">
-                                <span style="font-size: 11px; color: var(--dim); width: 20px; text-align: center;">{{ $r }}</span>
-                                @foreach($rowSeats as$seat)
-                                    @php
-                                        $isOccupied = in_array($seat->id,$occupiedSeatIds);
-                                    @endphp
+                                <span style="font-size: 11px; color: var(--dim); width: 20px; text-align: center;"><?= $r ?></span>
+                                <?php foreach ($rowSeats as$seat): ?>
+                                    <?php $isOccupied = in_array($seat->id,$occupiedSeatIds); ?>
                                     <button 
                                         type="button" 
-                                        class="seat {{ $seat->zone === 'vip' ? 'vip' : '' }} {{$isOccupied ? 'taken' : '' }}"
-                                        data-seat-id="{{ $seat->id }}"
-                                        data-row="{{ $seat->row_number }}"
-                                        data-seat="{{ $seat->seat_number }}"
-                                        data-price="{{ $event->prices[$seat->zone] ?? 5000 }}"
-                                        {{ $isOccupied ? 'disabled' : '' }}
+                                        class="seat <?= $seat->zone === 'vip' ? 'vip' : '' ?> <?=$isOccupied ? 'taken' : '' ?>"
+                                        data-seat-id="<?= $seat->id ?>"
+                                        data-row="<?= $seat->row_number ?>"
+                                        data-seat="<?= $seat->seat_number ?>"
+                                        data-price="<?= $event->prices[$seat->zone] ?? 5000 ?>"
+                                        <?= $isOccupied ? 'disabled' : '' ?>
                                     >
-                                        {{ $seat->seat_number }}
+                                        <?= $seat->seat_number ?>
                                     </button>
-                                @endforeach
-                                <span style="font-size: 11px; color: var(--dim); width: 20px; text-align: center;">{{ $r }}</span>
+                                <?php endforeach; ?>
+                                <span style="font-size: 11px; color: var(--dim); width: 20px; text-align: center;"><?= $r ?></span>
                             </div>
-                        @endfor
+                        <?php endfor; ?>
                     </div>
                 </div>
             </div>
 
             <div>
                 <x-panel title="Оформление заказа">
-                    <form id="order-form">
+                    <form id="order-form" novalidate>
                         @csrf
                         <input type="hidden" name="event_id" value="{{ $event->id }}">
                         
+                        <div id="form-error-box" style="display: none; padding: 10px; background: rgba(220, 53, 69, 0.15); border: 1px solid #dc3545; color: #ff8d94; border-radius: 4px; font-size: 12px; margin-bottom: 12px;"></div>
+
                         <div style="margin-bottom: 12px;">
                             <label style="font-size: 11px; color: var(--dim); text-transform: uppercase;">ФИО</label>
-                            <input type="text" name="customer_name" required placeholder="Иван Иванов" style="width: 100%; padding: 8px; background: #0A0A0B; border: 1px solid var(--line); color: #fff; border-radius: 4px;">
+                            <input type="text" name="customer_name" id="customer_name" required placeholder="Иван Иванов" style="width: 100%; padding: 8px; background: #0A0A0B; border: 1px solid var(--line); color: #fff; border-radius: 4px;">
                         </div>
 
                         <div style="margin-bottom: 12px;">
                             <label style="font-size: 11px; color: var(--dim); text-transform: uppercase;">E-mail</label>
-                            <input type="email" name="customer_email" required placeholder="user@mail.kz" style="width: 100%; padding: 8px; background: #0A0A0B; border: 1px solid var(--line); color: #fff; border-radius: 4px;">
+                            <input type="email" name="customer_email" id="customer_email" required placeholder="user@mail.kz" style="width: 100%; padding: 8px; background: #0A0A0B; border: 1px solid var(--line); color: #fff; border-radius: 4px;">
                         </div>
 
                         <div style="margin-bottom: 12px;">
                             <label style="font-size: 11px; color: var(--dim); text-transform: uppercase;">Телефон</label>
-                            <input type="tel" name="customer_phone" required placeholder="+7 777 000 0000" style="width: 100%; padding: 8px; background: #0A0A0B; border: 1px solid var(--line); color: #fff; border-radius: 4px;">
+                            <input type="tel" name="customer_phone" id="customer_phone" required placeholder="+7 (777) 000-00-00" style="width: 100%; padding: 8px; background: #0A0A0B; border: 1px solid var(--line); color: #fff; border-radius: 4px;">
                         </div>
 
                         <div style="margin-bottom: 16px;">
@@ -74,7 +72,7 @@
                             Выберите места на схеме
                         </div>
 
-                        <button type="submit" class="btn gold" style="width: 100%;" id="submit-btn" disabled>
+                        <button type="submit" class="btn gold" style="width: 100%; opacity: 0.5; cursor: not-allowed;" id="submit-btn" disabled>
                             Оплатить <span id="total-price">0</span> ₸
                         </button>
                     </form>
@@ -86,6 +84,48 @@
     <script>
         const selectedSeats = new Map();
 
+        // Блокировка ввода цифр в ФИО
+        document.getElementById('customer_name').addEventListener('input', function() {
+            this.value = this.value.replace(/[^a-zA-Zа-яА-ЯёЁӘәҒғҚқҢңӨөҰұҮүҺһ\s\-]/g, '');
+        });
+
+        // Строгая интерактивная маска телефона +7 (XXX) XXX-XX-XX
+        const phoneInput = document.getElementById('customer_phone');
+        
+        phoneInput.addEventListener('focus', function() {
+            if (!this.value) {
+                this.value = '+7 (';
+            }
+        });
+
+        phoneInput.addEventListener('input', function() {
+            let matrix = '+7 (___) ___-__-__';
+            let i = 0;
+            let def = matrix.replace(/\D/g, '');
+            let val = this.value.replace(/\D/g, '');
+
+            if (val.startsWith('8')) {
+                val = '7' + val.substring(1);
+            }
+
+            if (def.length >= val.length) {
+                val = def;
+            }
+
+            this.value = matrix.replace(/./g, function(a) {
+                return /[_\d]/.test(a) && i < val.length ? val.charAt(i++) : i >= val.length ? '' : a;
+            });
+        });
+
+        phoneInput.addEventListener('blur', function() {
+            if (this.value === '+7 (' || this.value.length < 18) {
+                if (this.value.length < 18) {
+                    this.value = '';
+                }
+            }
+        });
+
+        // Клик по местам на схеме
         document.querySelectorAll('.seat:not(.taken)').forEach(btn => {
             btn.addEventListener('click', () => {
                 const id = btn.dataset.seatId;
@@ -114,6 +154,8 @@
                 info.innerText = 'Выберите места на схеме';
                 totalEl.innerText = '0';
                 submitBtn.disabled = true;
+                submitBtn.style.opacity = '0.5';
+                submitBtn.style.cursor = 'not-allowed';
                 return;
             }
 
@@ -127,27 +169,77 @@
             info.innerText = text.join(', ');
             totalEl.innerText = total.toLocaleString();
             submitBtn.disabled = false;
+            submitBtn.style.opacity = '1';
+            submitBtn.style.cursor = 'pointer';
         }
 
+        function showError(msg) {
+            const errBox = document.getElementById('form-error-box');
+            errBox.innerText = msg;
+            errBox.style.display = 'block';
+        }
+
+        function hideError() {
+            const errBox = document.getElementById('form-error-box');
+            errBox.style.display = 'none';
+        }
+
+        // Отправка формы заказа
         document.getElementById('order-form').addEventListener('submit', async (e) => {
             e.preventDefault();
+            hideError();
+
+            if (selectedSeats.size === 0) {
+                showError('Пожалуйста, выберите хотя бы одно место на схеме.');
+                return;
+            }
+
+            const name = document.getElementById('customer_name').value.trim();
+            const email = document.getElementById('customer_email').value.trim();
+            const phone = document.getElementById('customer_phone').value.trim();
+
+            if (name.length < 2) {
+                showError('Введите корректное ФИО (не менее 2 букв).');
+                return;
+            }
+
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                showError('Введите корректный E-mail адрес.');
+                return;
+            }
+
+            if (phone.length < 18) {
+                showError('Введите полный номер телефона в формате +7 (7XX) XXX-XX-XX.');
+                return;
+            }
+
             const formData = new FormData(e.target);
             selectedSeats.forEach((_, key) => formData.append('seat_ids[]', key));
 
-            const res = await fetch('/orders', {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'Accept': 'application/json'
-                },
-                body: formData
-            });
+            try {
+                const res = await fetch('/orders', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    },
+                    body: formData
+                });
 
-            const data = await res.json();
-            if (data.success) {
-                window.location.href = data.redirect;
-            } else {
-                alert(data.message || 'Ошибка бронирования');
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    window.location.href = data.redirect;
+                } else {
+                    if (data.errors) {
+                        const firstErr = Object.values(data.errors)[0][0];
+                        showError(firstErr);
+                    } else {
+                        showError(data.message || 'Ошибка бронирования');
+                    }
+                }
+            } catch (err) {
+                showError('Сетевая ошибка. Попробуйте еще раз.');
             }
         });
     </script>
