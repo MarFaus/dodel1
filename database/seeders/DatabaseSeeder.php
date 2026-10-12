@@ -2,135 +2,89 @@
 
 namespace Database\Seeders;
 
-use App\Models\Author;
-use App\Models\Book;
-use App\Models\Borrowing;
-use App\Models\Reader;
+use App\Models\Hall;
+use App\Models\Event;
+use App\Models\Seat;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $a1 = Author::create([
-            'name' => 'Александр Пушкин',
-            'birth_date' => '1799-06-06',
-            'country' => 'Россия',
-            'biography' => 'Великий русский поэт, драматург и прозаик.'
-        ]);
+        $hallsData = [
+            'phil' => ['name' => 'Большой зал филармонии', 'rows' => 12, 'per' => 16, 'aisle' => [4, 12]],
+            'drama' => ['name' => 'Драматический театр им. Горького', 'rows' => 10, 'per' => 14, 'aisle' => [4, 11]],
+            'arena' => ['name' => 'Ледовая арена «Көктем»', 'rows' => 14, 'per' => 18, 'aisle' => [6, 13]],
+        ];
 
-        $a2 = Author::create([
-            'name' => 'Лев Толстой',
-            'birth_date' => '1828-09-09',
-            'country' => 'Россия',
-            'biography' => 'Один из наиболее известных классиков мировой литературы.'
-        ]);
+        $createdHalls = [];
 
-        $a3 = Author::create([
-            'name' => 'Джоан Роулинг',
-            'birth_date' => '1965-07-31',
-            'country' => 'Великобритания',
-            'biography' => 'Британская писательница, автор серии романов о Гарри Поттере.'
-        ]);
+        foreach ($hallsData as $code => $data) {
+            $hall = Hall::create([
+                'name' => $data['name'],
+                'code' => $code,
+                'total_rows' => $data['rows'],
+                'seats_per_row' => $data['per'],
+                'aisles' => $data['aisle'],
+            ]);
+            $createdHalls[$code] = $hall;
 
-        $a4 = Author::create([
-            'name' => 'Жюль Верн',
-            'birth_date' => '1828-02-08',
-            'country' => 'Франция',
-            'biography' => 'Французский писатель, классик приключенческой литературы.'
-        ]);
+            for ($r = 1; $r <= $data['rows']; $r++) {
+                for ($s = 1; $s <= $data['per']; $s++) {
+                    $zone = ($r <= 3) ? 'vip' : (($r <= ceil($data['rows'] * 0.66)) ? 'parter' : 'balcon');
+                    Seat::create([
+                        'hall_id' => $hall->id,
+                        'row_number' => $r,
+                        'seat_number' => $s,
+                        'zone' => $zone,
+                    ]);
+                }
+            }
+        }
 
-        $b1 = Book::create([
-            'title' => 'Евгений Онегин',
-            'author_id' => $a1->id,
-            'genre' => 'Роман в стихах',
-            'year' => 1833,
-            'isbn' => '978-5-389-01234-1',
-            'quantity' => 5,
-            'available' => true,
-            'description' => 'Роман в стихах Александра Сергеевича Пушкина.'
-        ]);
+        $events = [
+            [
+                'hall_code' => 'phil',
+                'title' => 'Қара Жорға. Симфония',
+                'category' => 'Концерт',
+                'description' => 'Народные мелодии в переложении для симфонического оркестра. 54 музыканта, живой хор, без электроники.',
+                'start_at' => '2026-10-24 19:00:00',
+                'duration_minutes' => 110,
+                'age_limit' => '6+',
+                'prices' => ['vip' => 18000, 'parter' => 11000, 'balcon' => 6500],
+                'status' => 'active',
+                'bg_gradient' => ['#2A2118', '#0C0C0E']
+            ],
+            [
+                'hall_code' => 'drama',
+                'title' => 'Ромео и Джульетта',
+                'category' => 'Театр',
+                'description' => 'Постановка в двух действиях с одним антрактом. Сценография — минимализм, свет и движение.',
+                'start_at' => '2026-10-26 18:30:00',
+                'duration_minutes' => 165,
+                'age_limit' => '12+',
+                'prices' => ['vip' => 14000, 'parter' => 8500, 'balcon' => 5000],
+                'status' => 'active',
+                'bg_gradient' => ['#241A1A', '#0C0C0E']
+            ],
+            [
+                'hall_code' => 'drama',
+                'title' => 'Открытый микрофон',
+                'category' => 'StandUp',
+                'description' => 'Восемь комиков, новый материал, честная проверка шуток на зале.',
+                'start_at' => '2026-10-29 20:00:00',
+                'duration_minutes' => 90,
+                'age_limit' => '18+',
+                'prices' => ['vip' => 9000, 'parter' => 6000, 'balcon' => 4000],
+                'status' => 'active',
+                'bg_gradient' => ['#1C2220', '#0C0C0E']
+            ],
+        ];
 
-        $b2 = Book::create([
-            'title' => 'Капитанская дочка',
-            'author_id' => $a1->id,
-            'genre' => 'Исторический роман',
-            'year' => 1836,
-            'isbn' => '978-5-389-01235-8',
-            'quantity' => 3,
-            'available' => true,
-            'description' => 'Исторический роман о событиях крестьянского восстания.'
-        ]);
-
-        $b3 = Book::create([
-            'title' => 'Война и мир',
-            'author_id' => $a2->id,
-            'genre' => 'Роман-эпопея',
-            'year' => 1869,
-            'isbn' => '978-5-389-01236-5',
-            'quantity' => 4,
-            'available' => true,
-            'description' => 'Роман-эпопея Льва Николаевича Толстого.'
-        ]);
-
-        $b4 = Book::create([
-            'title' => 'Гарри Поттер и философский камень',
-            'author_id' => $a3->id,
-            'genre' => 'Фэнтези',
-            'year' => 1997,
-            'isbn' => '978-5-389-01237-2',
-            'quantity' => 5,
-            'available' => true,
-            'description' => 'Первая книга серии о юном волшебнике Гарри Поттере.'
-        ]);
-
-        $b5 = Book::create([
-            'title' => 'Пятнадцатилетний капитан',
-            'author_id' => $a4->id,
-            'genre' => 'Приключения',
-            'year' => 1878,
-            'isbn' => '978-5-389-01238-9',
-            'quantity' => 2,
-            'available' => true,
-            'description' => 'Приключенческий роман Жюля Верна.'
-        ]);
-
-        $r1 = Reader::create([
-            'full_name' => 'Иванов Иван Иванович',
-            'phone' => '+7 700 111 22 33',
-            'email' => 'ivanov@example.com',
-            'birth_date' => '2001-05-15',
-        ]);
-
-        $r2 = Reader::create([
-            'full_name' => 'Петров Петр Сергеевич',
-            'phone' => '+7 701 222 33 44',
-            'email' => 'petrov@example.com',
-            'birth_date' => '1999-08-20',
-        ]);
-
-        $r3 = Reader::create([
-            'full_name' => 'Сидорова Анна Владимировна',
-            'phone' => '+7 702 333 44 55',
-            'email' => 'sidorova@example.com',
-            'birth_date' => '2003-12-10',
-        ]);
-
-        Borrowing::create([
-            'book_id' => $b4->id,
-            'reader_id' => $r1->id,
-            'borrowed_at' => now()->subDays(5)->toDateString(),
-            'return_date' => now()->addDays(9)->toDateString(),
-            'status' => 'borrowed',
-        ]);
-
-        Borrowing::create([
-            'book_id' => $b1->id,
-            'reader_id' => $r2->id,
-            'borrowed_at' => now()->subDays(10)->toDateString(),
-            'return_date' => now()->subDays(2)->toDateString(),
-            'returned_at' => now()->subDays(1)->toDateString(),
-            'status' => 'returned',
-        ]);
+        foreach ($events as $evData) {
+            $hallCode =$evData['hall_code'];
+            unset($evData['hall_code']);$evData['hall_id'] = $createdHalls[$hallCode]->id;
+            Event::create($evData);
+        }
     }
 }

@@ -3,41 +3,46 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
+use App\Models\Ticket;
 use Illuminate\Http\Request;
 
 class EventController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Event::query();
+        $category = $request->query('cat', 'Все');
+        $search = $request->query('q');
 
-        if ($request->filled('search')) {
-            $query->where('name', 'LIKE', '\%' .$request->search . '%');
+        $query = Event::with('hall');
+
+        if ($category !== 'Все') {
+            $query->where('category', $category);
         }
 
-        $events =$query->latest()->get();
+        if ($search) {
+            $query->where('title', 'like', "%{$search}%");
+        }
 
-        return view('events.index', compact('events'));
+        $events = $query->orderBy('start_at', 'asc')->get();
+
+        return view('events.index', compact('events', 'category', 'search'));
     }
 
-    public function create()
+    public function show($id)
     {
-        return view('events.create');
-    }
+        $event = Event::with('hall.seats')->findOrFail($id);
+        $hall = $event->hall;
 
-    public function store(Request $request)
-    {
-        $data =$request->validate([
-            'name' => 'required|string|max:200',
-            'event_date' => 'required|date',
-            'price' => 'required|numeric|min:0',
-            'description' => 'nullable|string|max:5000',
-        ]);
+        $seatsByRow = $hall->seats->groupBy('row_number');
 
-        Event::create($data);
+        $occupiedSeatIds = Ticket::where('event_id', $event->id)
+            ->whereHas('order', function ($q) {
+                $q->whereIn('status', ['paid', 'pending'])
+                  ->where('expires_at', '>', now());
+            })
+            ->pluck('seat_id')
+            ->toArray();
 
-        return redirect()
-            ->route('events.index')
-            ->with('success', 'Мероприятие успешно создано.');
+        return view('events.show', compact('event', 'hall', 'seatsByRow', 'occupiedSeatIds'));
     }
 }
